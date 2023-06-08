@@ -29,9 +29,7 @@ from intel_owl.celery import DEFAULT_QUEUE, get_queue_name
 logger = logging.getLogger(__name__)
 
 
-def file_directory_path(instance, filename):
-    now = timezone.now().strftime("%Y_%m_%d_%H_%M_%S")
-    return f"job_{now}_{filename}"
+
 
 
 def default_runtime():
@@ -98,20 +96,15 @@ class Job(models.Model):
     # constants
     TLP = TLP
     Status = Status
+    observable = models.ForeignKey(Observable, on_delete=models.CASCADE, null=True, blank=True, related_name="job")
+    file = models.ForeignKey(File, on_delete=models.CASCADE, null=True, blank=True, related_name="job")
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,  # for backwards compatibility
     )
-    is_sample = models.BooleanField(blank=False, default=False)
     md5 = models.CharField(max_length=32, blank=False)
-    observable_name = models.CharField(max_length=512, blank=True)
-    observable_classification = models.CharField(
-        max_length=12, blank=True, choices=ObservableClassification.choices
-    )
-    file_name = models.CharField(max_length=512, blank=True)
-    file_mimetype = models.CharField(max_length=80, blank=True)
     status = models.CharField(
         max_length=32, blank=False, choices=Status.choices, default="pending"
     )
@@ -165,15 +158,32 @@ class Job(models.Model):
     errors = pg_fields.ArrayField(
         models.CharField(max_length=900), blank=True, default=list, null=True
     )
-    file = models.FileField(blank=True, upload_to=file_directory_path)
     tags = models.ManyToManyField(Tag, related_name="jobs", blank=True)
 
     def __str__(self):
         return f'{self.__class__.__name__}(#{self.pk}, "{self.analyzed_object_name}")'
 
-    @property
+    def clean_analyzable(self):
+        if self.observable is None and self.file is None:
+            raise ValidationError("You can't create a job without an analyzable set")
+        elif self.observable and self.file:
+            raise ValidationError("You can't create a job with both an observable and a file set")
+
+    def clean(self) -> None:
+        super().clean()
+        self.clean_analyzable()
+
+    @cached_property
+    def analyzable(self) -> Analyzable:
+        return self.observable or self.file
+
+    @cached_property
+    def is_sample(self):
+        return bool(self.file)
+
+    @cached_property
     def analyzed_object_name(self):
-        return self.file_name if self.is_sample else self.observable_name
+        return self.analyzable.name
 
     @cached_property
     def sha256(self) -> str:
@@ -449,11 +459,6 @@ class Job(models.Model):
             .count()
         )
 
-
-@receiver(models.signals.pre_delete, sender=Job)
-def delete_file(sender, instance: Job, **kwargs):
-    if instance.file:
-        instance.file.delete()
 
 
 class PluginConfig(models.Model):

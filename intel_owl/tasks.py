@@ -28,6 +28,20 @@ def update_plugin(state, plugin_path):
     plugin = import_string(plugin_path)
     plugin.update()
 
+@shared_task(soft_time_limit=1000)
+def remove_old_files(retention_days:int =14):
+    from api_app.investigations_manager.models import File
+
+    logger.info("started remove_old_files")
+    date_to_check = now() - datetime.timedelta(days=retention_days)
+    # all the files that have no recent analyses
+    old_files = File.objects.exclude(job__finished_analysis_time__gte=date_to_check)
+    num_files_to_delete = old_files.count()
+    logger.info(f"found {num_files_to_delete} old files to delete")
+    old_files.delete()
+
+    logger.info("finished remove_old_files")
+
 
 @shared_task(soft_time_limit=10000)
 def remove_old_jobs():

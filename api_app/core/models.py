@@ -40,6 +40,8 @@ class AbstractReport(models.Model):
         "api_app.Job", related_name="%(class)ss", on_delete=models.CASCADE
     )
     # meta
+    observables = models.ManyToManyField(Observable, related_name="%(class)ss")
+    files = models.ManyToManyField(File, related_name="%(class)ss")
 
     class Meta:
         abstract = True

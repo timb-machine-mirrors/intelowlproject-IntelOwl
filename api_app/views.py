@@ -378,7 +378,7 @@ class JobViewSet(ReadAndDeleteOnlyViewSet, SerializerActionMixin):
     )
     @cache_action_response(timeout=60 * 5)
     def aggregate_file_mimetype(self, request):
-        return self.__aggregation_response_dynamic("file_mimetype")
+        return self.__aggregation_response_dynamic("file__mimetype")
 
     @action(
         url_path="aggregate/observable_name",
@@ -387,7 +387,7 @@ class JobViewSet(ReadAndDeleteOnlyViewSet, SerializerActionMixin):
     )
     @cache_action_response(timeout=60 * 5)
     def aggregate_observable_name(self, request):
-        return self.__aggregation_response_dynamic("observable_name", False)
+        return self.__aggregation_response_dynamic("observable__name", False)
 
     @action(
         url_path="aggregate/md5",
@@ -416,7 +416,7 @@ class JobViewSet(ReadAndDeleteOnlyViewSet, SerializerActionMixin):
 
         filter_kwargs = {"received_request_time__gte": delta}
         if field_name == "md5":
-            filter_kwargs["is_sample"] = True
+            filter_kwargs["file__isnull"] = False
 
         most_frequent_values = (
             Job.objects.filter(**filter_kwargs)
@@ -424,7 +424,7 @@ class JobViewSet(ReadAndDeleteOnlyViewSet, SerializerActionMixin):
             .exclude(**{f"{field_name}__exact": ""})
             # excluding those because they could lead to SQL query errors
             .exclude(
-                observable_classification__in=[
+                observable__classification__in=[
                     ObservableClassification.URL,
                     ObservableClassification.GENERIC,
                 ]

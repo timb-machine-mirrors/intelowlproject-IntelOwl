@@ -46,6 +46,22 @@ class Plugin(metaclass=ABCMeta):
         if settings.STAGE_CI:
             self._monkeypatch()
 
+    def create_pivot_observable(self, observable:str):
+        try:
+            obs = Observable.objects.get(name=observable)
+        except Observable.DoesNotExist:
+            obs = Observable.objects.create(name=observable)
+        self.report.observables.add(obs)
+
+    def create_pivot_file(self, file, file_name:str=None):
+        if not file_name:
+            file_name = file.name
+        try:
+            obs = Observable.objects.get(name=observable)
+        except Observable.DoesNotExist:
+            obs = Observable.objects.create(name=observable)
+        self.report.observables.add(obs)
+
     @classmethod
     @property
     @abstractmethod
